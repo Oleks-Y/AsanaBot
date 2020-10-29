@@ -4,17 +4,22 @@ import colorama
 import asana
 import json
 from dataclasses import dataclass
+from aiogram import Bot
 
 TOKEN = "1/1198912032764129:365f64489d324a2f4ebb6e1329291d8a"
 ENDPOINT_URL = "https://app.asana.com/api/1.0/events"
 HEADRES = headers = {
     'Authorization': 'Bearer 1/1198912032764129:365f64489d324a2f4ebb6e1329291d8a'
 }
+
+
 @dataclass()
 class Update:
-    type : str
-    text : str
-    updated_by : str
+    type: str
+    text: str
+    updated_by: str
+    sorce: str
+
 
 def getDefaultInfo() -> tuple:
     client = asana.Client.access_token(TOKEN)
@@ -37,7 +42,7 @@ def getDefaultInfo() -> tuple:
     return tasks_gids
 
 
-def getNewEvents():
+def getNewEventsComments():
     updated: list[Update] = []
     task_gids = getDefaultInfo()
     # get sync tokens
@@ -79,22 +84,34 @@ def getNewEvents():
         if res.status_code == 412:
             print(colorama.Back.RED + colorama.Fore.BLACK + "Now, we are fucked")
             print(colorama.Fore.RED + "Program must crash here")
-        new_sync = res.json()["sync"]
+        new_sync = res.json().get("sync", "")
 
-        if res.status_code==200:
+        if res.status_code == 200:
             event = res.json()
-            for update in event.get("data",[]) :
+            for update in event.get("data", []):
                 resource = update.get("resource", {})
-                if resource.get("type", "")!="comment":
-                    continue
-                updated.append(Update(type=resource["type"], text=resource["text"], updated_by=resource.get("created_by",{}).get("name", "")))
+                source = ""
+                if resource.get("type", "") == "comment" and resource.get("type", "") == "system":
+                    try:
+                        source = update.get("parent", {}).get("name", "")
+                    except:
+                        source = ""
+                    updated.append(Update(type=resource["type"], text=resource["text"],
+                                          updated_by=resource.get("created_by", {}).get("name", ""),
+                                          sorce=source))
+                elif update.get("change", None) and update.get("change", {}).get("new_value", {}).get("name",
+                                                                                                      "") == "Status":
+                    updated.append(Update(type="status",
+                                          text=update.get("change", {}).get("new_value", {}).get("enum_value", {}).get(
+                                              "name", ""),
+                                          updated_by=update.get("change", {}).get("new_value", {}).get( "created_by", {}).get("name", ""),
+                                          sorce=resource.get("name", "")))
         print("Update : " + res.text)
         databse.updateToken(task_gid, new_sync)
     return updated
 
 
 if __name__ == '__main__':
-    updated = getNewEvents()
-    print(colorama.Fore.BLUE + "Updated")
-    for i in updated:
-        print(updated)
+    updated = getNewEventsComments()
+    bot = Bot(token="1344620215:AAFEo5hC3D5Io-tua33KvfF5G28AtUJ0jhg")
+    
