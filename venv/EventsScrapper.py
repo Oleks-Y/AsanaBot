@@ -4,13 +4,16 @@ import colorama
 import asana
 import json
 from dataclasses import dataclass
-from aiogram import Bot
+import telebot
+import threading
 
 TOKEN = "1/1198912032764129:365f64489d324a2f4ebb6e1329291d8a"
 ENDPOINT_URL = "https://app.asana.com/api/1.0/events"
 HEADRES = headers = {
     'Authorization': 'Bearer 1/1198912032764129:365f64489d324a2f4ebb6e1329291d8a'
 }
+BOT_TOKEN = "1344620215:AAFEo5hC3D5Io-tua33KvfF5G28AtUJ0jhg"
+CHAT_ID = "-1001254398327"
 
 
 @dataclass()
@@ -91,11 +94,11 @@ def getNewEventsComments():
             for update in event.get("data", []):
                 resource = update.get("resource", {})
                 source = ""
-                if resource.get("type", "") == "comment" and resource.get("type", "") == "system":
-                    try:
-                        source = update.get("parent", {}).get("name", "")
-                    except:
-                        source = ""
+                try:
+                    source = update.get("parent", {}).get("name", "")
+                except:
+                    source = ""
+                if resource.get("type", "") == "comment":
                     updated.append(Update(type=resource["type"], text=resource["text"],
                                           updated_by=resource.get("created_by", {}).get("name", ""),
                                           sorce=source))
@@ -104,14 +107,37 @@ def getNewEventsComments():
                     updated.append(Update(type="status",
                                           text=update.get("change", {}).get("new_value", {}).get("enum_value", {}).get(
                                               "name", ""),
-                                          updated_by=update.get("change", {}).get("new_value", {}).get( "created_by", {}).get("name", ""),
+                                          updated_by=update.get("change", {}).get("new_value", {}).get("created_by",
+                                                                                                       {}).get("name",
+                                                                                                               ""),
                                           sorce=resource.get("name", "")))
         print("Update : " + res.text)
         databse.updateToken(task_gid, new_sync)
     return updated
 
 
-if __name__ == '__main__':
+def send_updates():
+    bot = telebot.TeleBot(token=BOT_TOKEN)
     updated = getNewEventsComments()
-    bot = Bot(token="1344620215:AAFEo5hC3D5Io-tua33KvfF5G28AtUJ0jhg")
-    
+    for update in updated:
+        message = ""
+        if update.type == "comment":
+            message = "До задачі " + update.sorce + " доданий коментар \n" + update.text
+        if update.type == "status":
+            message = "Статус задачі " + update.sorce + " змінено на " + update.text
+        bot.send_message(chat_id=CHAT_ID, text=message)
+
+
+def runEvents():
+    threading.Timer(15.0, runEvents).start()
+    send_updates()
+
+
+if __name__ == '__main__':
+    # updated = getNewEventsComments()
+    # # bot = Bot(token="1344620215:AAFEo5hC3D5Io-tua33KvfF5G28AtUJ0jhg")
+    # print(colorama.Fore.CYAN)
+    # print("-" * 40)
+    # for update in updated:
+    #     print(update)
+    runEvents()
