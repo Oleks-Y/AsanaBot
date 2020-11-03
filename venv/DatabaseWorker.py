@@ -1,5 +1,5 @@
 import pymysql
-
+from datetime import datetime
 
 class DatabaseWorker:
     def __init__(self):
@@ -25,7 +25,11 @@ class DatabaseWorker:
         with self.connection.cursor() as cur:
             cur.execute("Update `asanasynctokens` SET `SyncToken`=%s Where `TaskGid`=%s", (sync_token, task_gid))
         self.connection.commit()
-
+    def createTask(self, taskName : str, asigneeName:str):
+        with self.connection.cursor() as cur:
+            cur.execute("INSERT INTO  `taskscreated` (`TaskName`, `Assignee`, `Created_At`) VALUES (%s,%s,%s)",
+                        (taskName, asigneeName, datetime.now()))
+        self.connection.commit()
 
 if __name__ == '__main__':
     dw = DatabaseWorker()
